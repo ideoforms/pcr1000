@@ -9,9 +9,9 @@ Awaiting cleanup and further doc strings; caveat emptor.
 #!/usr/bin/python
 
 import time
-import pcr1000
+from pcr1000 import *
 
-pcr = pcr1000.PCR1000()
+pcr = PCR1000()
 
 # start a connection 
 pcr.open()
