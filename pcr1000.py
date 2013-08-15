@@ -3,7 +3,6 @@ import re
 import glob
 import time
 import serial
-import settings
 import threading
 from Queue import *
 
