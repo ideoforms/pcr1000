@@ -7,6 +7,15 @@ import settings
 import threading
 from Queue import *
 
+"""
+pcr1000.py: A Python package to interface with the ICOM PCR-1000
+serial-controlled radio receiver. 
+
+TODO
+Convert get_/set_ methods to @property
+"""
+
+
 class PCRCommand:
 	pass
 
