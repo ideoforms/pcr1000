@@ -4,7 +4,7 @@ import glob
 import time
 import serial
 import threading
-from Queue import *
+from queue import *
 
 """
 pcr1000.py: A Python package to interface with the ICOM PCR-1000
@@ -86,7 +86,7 @@ class PCR1000:
 
 	def trace(self, text):
 		if self.debug:
-			print text
+			print(text)
 
 	def is_open(self):
 		return True if self.port else False
@@ -105,8 +105,8 @@ class PCR1000:
 			self.port.open()
 			self.background_poll()
 			return self.port.getCTS()
-		except Exception, e:
-			print "couldn't open serial port: %s" % e
+		except Exception as e:
+			print("couldn't open serial port: %s" % e)
 			self.port = None
 			return False
 
@@ -122,7 +122,7 @@ class PCR1000:
 	def start(self, baud = BAUD_9600, volume = 0.5, squelch = 0.0, tsquelch = 0.0):
 		""" Start up the PCR-1000 and set initial settings. """
 		if self.started:
-			print "*** already started, bailing"
+			print("*** already started, bailing")
 			return 
 		if not self.port:
 			self.open()
@@ -152,7 +152,7 @@ class PCR1000:
 		# set daemon mode to True so this thread dies when the main thread
 		# is killed
 		if self.read_thread:
-			print "*** already running background poll, refusing to start another thread"
+			print("*** already running background poll, refusing to start another thread")
 			return
 		else:
 			self.read_thread = threading.Thread(target = self.read_serial)
@@ -162,19 +162,19 @@ class PCR1000:
 			self.write_thread = threading.Thread(target = self.write_serial)
 			self.write_thread.daemon = True
 			self.write_thread.start()
-			print "started read and write threads"
+			print("started read and write threads")
 
 	def write_serial(self):
 		self.write_queue = Queue()
 		while True:
 			try:
 				command = self.write_queue.get()
-				print "command: %s (port %s)" % (command, self.port)
-				self.port.write("%s\r\n" % command)
-				self.trace("[WRITE] write: %s" % command)
+				command = "%s\r\n" % command
+				# print("command: %s (port %s)" % (command, self.port))
+				self.port.write(command.encode("utf8"))
 				self.write_queue.task_done()
-			except Exception, e:
-				print "Failed to operate on job: %s (type %s)" % (e, type(e))
+			except Exception as e:
+				print("Failed to operate on job: %s (type %s)" % (e, type(e)))
 
 	def read_serial(self):
 		if self.port is None:
@@ -185,6 +185,7 @@ class PCR1000:
 			while n:
 				try:
 					text = self.port.read(size = n)
+					text = str(text)
 					text = text.replace("\r", "")
 					text = text.replace("\n", "")
 					text = text.strip()
@@ -193,8 +194,8 @@ class PCR1000:
 					responses = self.parser.parse(text)
 					for response in responses:
 						self.handle(response)
-				except serial.SerialException, e:
-					print "*** error reading serial: %s" % e
+				except serial.SerialException as e:
+					print("*** error reading serial: %s" % e)
 					# self.port.close()
 					break
 				n = self.port.inWaiting()
@@ -237,7 +238,6 @@ class PCR1000:
 			sync = self.synchronous
 
 		command = command.upper()
-		print "[WRITE] write: %s" % command
 		self.write_queue.put(command)
 
 		if sync:
@@ -358,7 +358,7 @@ class BufferedParser:
 
 	def trace(self, text):
 		if self.debug:
-			print text
+			print(text)
 
 	def parse(self, string):
 		self.buffer += string
@@ -439,13 +439,31 @@ class BufferedParser:
 
 			else:
 				if re.match("[GHIN]", self.buffer):
-					print "*** known command but unrecognized args: %s" % self.buffer
+					print("*** known command but unrecognized args: %s" % self.buffer)
 					self.buffer = self.buffer[1:]
 				while len(self.buffer) > 0 and not re.match("[GHIN]", self.buffer):
 					self.trace("[BUF] *** skipping char: %s" % self.buffer[0])
 					self.buffer = self.buffer[1:]
 
 		return responses
+
+def main():
+	pcr = PCR1000()
+
+	# start a connection 
+	pcr.open()
+
+	# assign a callback when our reception signal strength is updated
+	pcr.on_signal_strength(lambda response, device: print("#" * int(response.args[0] * 150)))
+
+	# start receiving
+	pcr.start(volume=0.5)
+
+	# scan from 88Mhz to 105Mhz wideband FM in 10kHz intervals
+	for freq in range(int(88e6), int(105e6), 10000):
+		print(freq)
+		pcr.tune(freq, PCR1000.MODE_WFM, PCR1000.FLT_230K)
+		time.sleep(0.1)
 
 if __name__ == "__main__":
 	main()
